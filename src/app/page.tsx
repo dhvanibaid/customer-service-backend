@@ -1,170 +1,155 @@
 "use client";
 
-import { useEffect, useState } from 'react';
-import { useRouter } from 'next/navigation';
-import { getUserSession, setUserSession, clearUserSession, isAuthenticated } from '@/lib/session';
-import { Button } from '@/components/ui/button';
-import { Card } from '@/components/ui/card';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Textarea } from '@/components/ui/textarea';
-import { Badge } from '@/components/ui/badge';
-import { useToast } from '@/hooks/use-toast';
-import { Toaster } from '@/components/ui/sonner';
-import { toast } from 'sonner';
-import { BookingTimeline, TimelineStage } from '@/components/booking-timeline';
-import { ReviewsCarousel } from '@/components/reviews-carousel';
-import { WhyChooseUs } from '@/components/why-choose-us';
-import { PaymentDialog } from '@/components/payment-dialog';
-import { lookupPincode } from '@/lib/pincode-lookup';
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
+import { Card } from "@/components/ui/card";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { toast } from "sonner";
+import { Toaster } from "@/components/ui/sonner";
+import { getUserSession, setUserSession } from "@/lib/session";
+import { BookingTimeline, TimelineStage } from "@/components/booking-timeline";
+import { ReviewsCarousel } from "@/components/reviews-carousel";
+import { WhyChooseUs } from "@/components/why-choose-us";
+import { PaymentDialog } from "@/components/payment-dialog";
+import { Wrench, User, LogOut } from "lucide-react";
 
-type Page = 'otp-verification' | 'add-address' | 'home' | 'service-details' | 'booking-confirmation' | 'payment' | 'feedback';
-
-interface Address {
-  id: number;
-  apartmentBuilding: string | null;
-  streetArea: string | null;
-  city: string | null;
-  state: string | null;
-  pincode: string | null;
-  isDefault: boolean;
-}
-
-interface Booking {
-  id: number;
-  serviceType: string;
-  subService: string | null;
-  workDescription: string | null;
-  status: string;
-  professionalName: string | null;
-  professionalContact: string | null;
-  bookingDate: string;
-}
-
-const subServices: Record<string, string[]> = {
-  plumber: ['Leaky Faucet Repair', 'Drain Cleaning', 'Pipe Installation'],
-  electrician: ['Light Fixture Install', 'Wiring Repair', 'Fuse Box Check'],
-  carpenter: ['Furniture Assembly', 'Door Repair', 'Custom Shelving'],
-  painter: ['Interior Painting', 'Exterior Painting', 'Touch-ups'],
-  househelp: ['Deep Cleaning', 'Regular Cleaning', 'Laundry']
-};
-
-export default function Home() {
+export default function SnapfixHomePage() {
   const router = useRouter();
-  const [currentPage, setCurrentPage] = useState<Page>('otp-verification');
-  const [loading, setLoading] = useState(false);
+  const [currentStage, setCurrentStage] = useState<TimelineStage>('registration');
+  const [session, setSession] = useState<any>(null);
   
-  // OTP states
-  const [mobileNumber, setMobileNumber] = useState('');
-  const [otp, setOtp] = useState('');
+  // Registration state
+  const [phoneNumber, setPhoneNumber] = useState("");
+  const [otp, setOtp] = useState("");
   const [otpSent, setOtpSent] = useState(false);
-  const [generatedOtp, setGeneratedOtp] = useState('');
   
-  // Address states
-  const [pincode, setPincode] = useState('');
-  const [apartmentBuilding, setApartmentBuilding] = useState('');
-  const [streetArea, setStreetArea] = useState('');
-  const [city, setCity] = useState('');
-  const [state, setState] = useState('');
-  const [pincodeLoading, setPincodeLoading] = useState(false);
+  // Address state
+  const [pincode, setPincode] = useState("");
+  const [apartmentBuilding, setApartmentBuilding] = useState("");
+  const [streetArea, setStreetArea] = useState("");
+  const [city, setCity] = useState("");
+  const [state, setState] = useState("");
+  const [addressId, setAddressId] = useState<number | null>(null);
   
-  // Service booking states
-  const [selectedService, setSelectedService] = useState('');
-  const [selectedSubService, setSelectedSubService] = useState('');
-  const [workDescription, setWorkDescription] = useState('');
-  const [currentBooking, setCurrentBooking] = useState<Booking | null>(null);
-  const [paymentAmount] = useState(499); // Fixed service charge
+  // Booking state
+  const [selectedService, setSelectedService] = useState("");
+  const [subService, setSubService] = useState("");
+  const [workDescription, setWorkDescription] = useState("");
+  const [bookingId, setBookingId] = useState<number | null>(null);
   
-  // Feedback states
-  const [rating, setRating] = useState(0);
-  const [feedbackText, setFeedbackText] = useState('');
+  // Payment state
+  const [showPayment, setShowPayment] = useState(false);
   
-  // User addresses
-  const [userAddresses, setUserAddresses] = useState<Address[]>([]);
-  const [selectedAddressId, setSelectedAddressId] = useState<number | null>(null);
+  const [loading, setLoading] = useState(false);
 
-  // Timeline stage
-  const [timelineStage, setTimelineStage] = useState<TimelineStage>('registration');
+  const services = [
+    {
+      id: "plumber",
+      name: "Plumber",
+      icon: "🔧",
+      subServices: ["Tap Repair", "Pipe Leakage", "Toilet Repair", "Basin Installation"]
+    },
+    {
+      id: "electrician",
+      name: "Electrician",
+      icon: "⚡",
+      subServices: ["Wiring", "Switch/Socket Repair", "Fan Installation", "Light Fitting"]
+    },
+    {
+      id: "carpenter",
+      name: "Carpenter",
+      icon: "🔨",
+      subServices: ["Furniture Repair", "Door Repair", "Cabinet Installation", "Shelving"]
+    },
+    {
+      id: "painter",
+      name: "Painter",
+      icon: "🎨",
+      subServices: ["Interior Painting", "Exterior Painting", "Waterproofing", "Wall Texture"]
+    },
+    {
+      id: "househelp",
+      name: "House Help",
+      icon: "🧹",
+      subServices: ["Deep Cleaning", "Regular Cleaning", "Kitchen Cleaning", "Bathroom Cleaning"]
+    }
+  ];
 
   useEffect(() => {
-    const session = getUserSession();
-    if (session) {
-      setCurrentPage('home');
-      setTimelineStage('booking');
-      fetchUserAddresses(session.userId);
+    const userSession = getUserSession();
+    if (userSession) {
+      setSession(userSession);
+      setCurrentStage('address');
     }
   }, []);
 
-  // Pincode lookup handler
-  const handlePincodeLookup = async (pincodeValue: string) => {
-    setPincode(pincodeValue);
+  // Pincode auto-fill functionality
+  const handlePincodeChange = async (value: string) => {
+    setPincode(value);
     
-    if (pincodeValue.length === 6) {
-      setPincodeLoading(true);
-      const data = await lookupPincode(pincodeValue);
-      setPincodeLoading(false);
-      
-      if (data) {
-        setCity(data.city);
-        setState(data.state);
-        toast.success('Location details auto-filled!');
-      } else {
-        toast.error('Invalid pincode or location not found');
-      }
-    }
-  };
-
-  const fetchUserAddresses = async (userId: number) => {
-    try {
-      const res = await fetch(`/api/addresses?userId=${userId}`);
-      if (res.ok) {
-        const addresses = await res.json();
-        setUserAddresses(addresses);
-        const defaultAddress = addresses.find((addr: Address) => addr.isDefault);
-        if (defaultAddress) {
-          setSelectedAddressId(defaultAddress.id);
-        } else if (addresses.length > 0) {
-          setSelectedAddressId(addresses[0].id);
+    if (value.length === 6) {
+      try {
+        const response = await fetch(`https://api.postalpincode.in/pincode/${value}`);
+        const data = await response.json();
+        
+        if (data[0]?.Status === "Success" && data[0]?.PostOffice?.length > 0) {
+          const postOffice = data[0].PostOffice[0];
+          setCity(postOffice.District);
+          setState(postOffice.State);
+          toast.success("Location details filled automatically!");
+        } else {
+          // Fallback to mock data
+          const mockData: Record<string, { city: string; state: string }> = {
+            "110001": { city: "New Delhi", state: "Delhi" },
+            "400001": { city: "Mumbai", state: "Maharashtra" },
+            "560001": { city: "Bangalore", state: "Karnataka" },
+            "600001": { city: "Chennai", state: "Tamil Nadu" },
+            "700001": { city: "Kolkata", state: "West Bengal" },
+            "411001": { city: "Pune", state: "Maharashtra" },
+            "500001": { city: "Hyderabad", state: "Telangana" },
+            "380001": { city: "Ahmedabad", state: "Gujarat" },
+          };
+          
+          if (mockData[value]) {
+            setCity(mockData[value].city);
+            setState(mockData[value].state);
+            toast.success("Location details filled!");
+          }
         }
+      } catch (error) {
+        console.error("Failed to fetch pincode data:", error);
       }
-    } catch (error) {
-      console.error('Failed to fetch addresses:', error);
     }
   };
 
   const handleSendOtp = async () => {
-    if (mobileNumber.length !== 10) {
-      toast.error('Please enter a valid 10-digit mobile number');
+    if (phoneNumber.length !== 10) {
+      toast.error("Please enter a valid 10-digit mobile number");
       return;
     }
 
     setLoading(true);
     try {
-      const res = await fetch('/api/otp', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phoneNumber: mobileNumber, action: 'generate' })
+      const res = await fetch("/api/otp", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ phoneNumber, action: "generate" }),
       });
 
       const data = await res.json();
       
       if (res.ok) {
-        setGeneratedOtp(data.otpCode);
         setOtpSent(true);
-        toast.success('OTP sent successfully! (Check console for OTP in dev mode)');
-        console.log('Generated OTP:', data.otpCode);
+        toast.success("OTP sent successfully!");
+        console.log("Generated OTP:", data.otpCode);
       } else {
-        toast.error(data.error || 'Failed to send OTP');
+        toast.error(data.error || "Failed to send OTP");
       }
     } catch (error) {
-      toast.error('Failed to send OTP. Please try again.');
+      toast.error("Failed to send OTP");
     } finally {
       setLoading(false);
     }
@@ -172,79 +157,62 @@ export default function Home() {
 
   const handleVerifyOtp = async () => {
     if (!otp || otp.length !== 6) {
-      toast.error('Please enter a valid 6-digit OTP');
+      toast.error("Please enter a valid 6-digit OTP");
       return;
     }
 
     setLoading(true);
     try {
-      const verifyRes = await fetch('/api/otp', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ phoneNumber: mobileNumber, action: 'verify', otpCode: otp })
+      const verifyRes = await fetch("/api/otp", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ phoneNumber, action: "verify", otpCode: otp }),
       });
 
       if (verifyRes.ok) {
-        // Create or get user
-        const userRes = await fetch('/api/users', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ phone_number: mobileNumber })
+        const userRes = await fetch("/api/users", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ phone_number: phoneNumber }),
         });
 
         const userData = await userRes.json();
         
         if (userRes.ok) {
-          setUserSession({
+          const newSession = {
             userId: userData.id,
             phoneNumber: userData.phoneNumber,
-            name: userData.name
-          });
-
-          toast.success('Verification successful!');
-          
-          // Check if user has addresses
-          const addressRes = await fetch(`/api/addresses?userId=${userData.id}`);
-          const addresses = await addressRes.json();
-          
-          if (addresses.length === 0) {
-            setCurrentPage('add-address');
-            setTimelineStage('address');
-          } else {
-            setUserAddresses(addresses);
-            const defaultAddress = addresses.find((addr: Address) => addr.isDefault);
-            setSelectedAddressId(defaultAddress?.id || addresses[0]?.id);
-            setCurrentPage('home');
-            setTimelineStage('booking');
-          }
+            name: userData.name,
+          };
+          setUserSession(newSession);
+          setSession(newSession);
+          toast.success("OTP verified successfully!");
+          setCurrentStage('address');
         } else {
-          toast.error('Failed to create user session');
+          toast.error("Failed to create user session");
         }
       } else {
         const errorData = await verifyRes.json();
-        toast.error(errorData.error || 'Invalid OTP');
+        toast.error(errorData.error || "Invalid OTP");
       }
     } catch (error) {
-      toast.error('Verification failed. Please try again.');
+      toast.error("Verification failed");
     } finally {
       setLoading(false);
     }
   };
 
   const handleSaveAddress = async () => {
-    if (!pincode || !apartmentBuilding || !streetArea || !city || !state) {
-      toast.error('Please fill out all address fields');
+    if (!pincode || !city || !state) {
+      toast.error("Please fill all required fields");
       return;
     }
 
-    const session = getUserSession();
-    if (!session) return;
-
     setLoading(true);
     try {
-      const res = await fetch('/api/addresses', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+      const res = await fetch("/api/addresses", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           userId: session.userId,
           apartmentBuilding,
@@ -252,585 +220,487 @@ export default function Home() {
           city,
           state,
           pincode,
-          isDefault: userAddresses.length === 0
-        })
+          isDefault: true,
+        }),
       });
 
+      const data = await res.json();
+      
       if (res.ok) {
-        const newAddress = await res.json();
-        setUserAddresses([...userAddresses, newAddress]);
-        setSelectedAddressId(newAddress.id);
-        toast.success('Address saved successfully!');
-        setCurrentPage('home');
-        setTimelineStage('booking');
-        
-        // Clear form
-        setApartmentBuilding('');
-        setStreetArea('');
-        setCity('');
-        setState('');
-        setPincode('');
+        setAddressId(data.id);
+        toast.success("Address saved successfully!");
+        setCurrentStage('booking');
       } else {
-        toast.error('Failed to save address');
+        toast.error(data.error || "Failed to save address");
       }
     } catch (error) {
-      toast.error('Failed to save address');
+      toast.error("Failed to save address");
     } finally {
       setLoading(false);
     }
   };
 
-  const handleServiceSelect = (serviceType: string) => {
-    setSelectedService(serviceType);
-    setSelectedSubService(subServices[serviceType][0]);
-    setCurrentPage('service-details');
-  };
-
-  const handleConfirmBooking = async () => {
-    if (!workDescription) {
-      toast.error('Please provide a description of the work');
-      return;
-    }
-
-    const session = getUserSession();
-    if (!session || !selectedAddressId) {
-      toast.error('Please select an address');
+  const handleBookService = async () => {
+    if (!selectedService) {
+      toast.error("Please select a service");
       return;
     }
 
     setLoading(true);
     try {
-      const res = await fetch('/api/bookings', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+      const res = await fetch("/api/bookings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           userId: session.userId,
-          addressId: selectedAddressId,
+          addressId,
           serviceType: selectedService,
-          subService: selectedSubService,
-          workDescription,
-          bookingDate: new Date().toISOString()
-        })
+          subService: subService || null,
+          workDescription: workDescription || null,
+          status: "confirmed",
+          professionalName: "Rajesh Kumar",
+          professionalContact: "+91 98765 43210",
+        }),
       });
 
+      const data = await res.json();
+      
       if (res.ok) {
-        const booking = await res.json();
+        setBookingId(data.id);
+        toast.success("Service booked successfully!");
+        setCurrentStage('confirmed');
         
-        // Simulate professional assignment
-        await fetch(`/api/bookings?id=${booking.id}`, {
-          method: 'PUT',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            status: 'confirmed',
-            professionalName: 'John Doe',
-            professionalContact: '+91 98765 43210'
-          })
-        });
-
-        const updatedRes = await fetch(`/api/bookings?id=${booking.id}`);
-        const updatedBooking = await updatedRes.json();
-        
-        setCurrentBooking(updatedBooking);
-        toast.success('Booking confirmed!');
-        setCurrentPage('booking-confirmation');
-        setTimelineStage('confirmed');
-        setWorkDescription('');
+        // Auto-advance to payment after 2 seconds
+        setTimeout(() => {
+          setCurrentStage('payment');
+          setShowPayment(true);
+        }, 2000);
       } else {
-        toast.error('Failed to create booking');
+        toast.error(data.error || "Failed to book service");
       }
     } catch (error) {
-      toast.error('Failed to create booking');
+      toast.error("Failed to book service");
     } finally {
       setLoading(false);
     }
   };
 
   const handlePaymentSuccess = () => {
-    toast.success('Payment successful!');
-    setCurrentPage('feedback');
-    setTimelineStage('feedback');
+    setShowPayment(false);
+    setCurrentStage('completed');
+    toast.success("Payment successful!");
+    
+    // Auto-advance to feedback after 2 seconds
+    setTimeout(() => {
+      setCurrentStage('feedback');
+    }, 2000);
   };
 
-  const handleSubmitFeedback = async () => {
-    if (rating === 0) {
-      toast.error('Please select a rating');
-      return;
-    }
-
-    const session = getUserSession();
-    if (!session || !currentBooking) return;
-
+  const handleSubmitFeedback = async (rating: number, comments: string) => {
     setLoading(true);
     try {
-      const res = await fetch('/api/feedback', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+      const res = await fetch("/api/feedback", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          bookingId: currentBooking.id,
+          bookingId,
           userId: session.userId,
           rating,
-          comments: feedbackText
-        })
+          comments,
+        }),
       });
 
       if (res.ok) {
-        toast.success('Thank you for your feedback!');
-        setRating(0);
-        setFeedbackText('');
+        toast.success("Thank you for your feedback!");
         setTimeout(() => {
-          setCurrentPage('home');
-          setTimelineStage('booking');
+          router.push("/profile");
         }, 1500);
       } else {
-        toast.error('Failed to submit feedback');
+        toast.error("Failed to submit feedback");
       }
     } catch (error) {
-      toast.error('Failed to submit feedback');
+      toast.error("Failed to submit feedback");
     } finally {
       setLoading(false);
     }
   };
 
-  const getServiceIcon = (serviceType: string) => {
-    const icons: Record<string, string> = {
-      plumber: '🔧',
-      electrician: '⚡',
-      carpenter: '🔨',
-      painter: '🎨',
-      househelp: '🧹',
-    };
-    return icons[serviceType] || '📦';
+  const handleLogout = () => {
+    setSession(null);
+    setUserSession(null as any);
+    setCurrentStage('registration');
+    setPhoneNumber("");
+    setOtp("");
+    setOtpSent(false);
+    toast.success("Logged out successfully");
   };
 
   return (
-    <div className="min-h-screen bg-slate-900 text-slate-100">
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
       <Toaster position="top-center" />
       
-      <div className="container mx-auto px-4 py-8 max-w-4xl">
-        {/* Header */}
-        <header className="text-center mb-8">
-          <h1 className="text-4xl font-extrabold text-teal-400">Snapfix</h1>
-          <p className="mt-2 text-lg text-slate-400">Your on-demand home services partner</p>
-        </header>
-
-        {/* Timeline - Show on all pages except OTP verification */}
-        {currentPage !== 'otp-verification' && (
-          <BookingTimeline currentStage={timelineStage} className="mb-8" />
-        )}
-
-        {/* Navigation Links */}
-        {currentPage === 'home' && (
-          <div className="flex justify-center space-x-4 mb-8">
-            <Button
-              variant="ghost"
-              onClick={() => router.push('/profile')}
-              className="text-slate-200 font-medium hover:text-teal-400"
-            >
-              My Profile
-            </Button>
-            <Button
-              variant="ghost"
-              onClick={() => setCurrentPage('add-address')}
-              className="text-slate-200 font-medium hover:text-teal-400"
-            >
-              Add Address
-            </Button>
-          </div>
-        )}
-
-        {/* OTP Verification Page */}
-        {currentPage === 'otp-verification' && (
-          <div className="grid md:grid-cols-2 gap-6">
-            <Card className="rounded-xl shadow-lg p-8 bg-slate-800 border-slate-700">
-              <h2 className="text-2xl font-bold mb-6 text-center text-slate-200">
-                Mobile Number Verification
-              </h2>
-              <div className="mb-4">
-                <Label htmlFor="mobile-number" className="text-slate-400">Mobile Number</Label>
-                <Input
-                  id="mobile-number"
-                  type="tel"
-                  value={mobileNumber}
-                  onChange={(e) => setMobileNumber(e.target.value)}
-                  placeholder="e.g., 9876543210"
-                  className="mt-1 bg-slate-700 border-slate-600 text-slate-100"
-                  maxLength={10}
-                />
-              </div>
-              <Button
-                onClick={handleSendOtp}
-                disabled={loading}
-                className="w-full bg-teal-600 hover:bg-teal-700"
-              >
-                {loading ? 'Sending...' : 'Send OTP'}
-              </Button>
-
-              {otpSent && (
-                <div className="mt-6">
-                  <Label htmlFor="otp" className="text-slate-400">Enter OTP</Label>
-                  <Input
-                    id="otp"
-                    type="number"
-                    value={otp}
-                    onChange={(e) => setOtp(e.target.value)}
-                    placeholder="e.g., 123456"
-                    className="mt-1 bg-slate-700 border-slate-600 text-slate-100"
-                    maxLength={6}
-                  />
+      {/* Header */}
+      <header className="bg-slate-800/50 border-b border-slate-700 backdrop-blur-sm sticky top-0 z-50">
+        <div className="container mx-auto px-4 py-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-3">
+              <Wrench className="h-8 w-8 text-teal-400" />
+              <h1 className="text-2xl font-bold text-teal-400">Snapfix</h1>
+            </div>
+            <div className="flex items-center gap-4">
+              {session && (
+                <>
                   <Button
-                    onClick={handleVerifyOtp}
-                    disabled={loading}
-                    className="w-full bg-green-600 hover:bg-green-700 mt-4"
+                    variant="ghost"
+                    onClick={() => router.push("/profile")}
+                    className="text-slate-300 hover:text-teal-400"
                   >
-                    {loading ? 'Verifying...' : 'Verify'}
+                    <User className="h-4 w-4 mr-2" />
+                    Profile
                   </Button>
-                </div>
+                  <Button
+                    variant="ghost"
+                    onClick={handleLogout}
+                    className="text-slate-300 hover:text-red-400"
+                  >
+                    <LogOut className="h-4 w-4 mr-2" />
+                    Logout
+                  </Button>
+                </>
               )}
-            </Card>
-
-            {/* Why Choose Us Section */}
-            <div className="space-y-6">
-              <WhyChooseUs />
-              <ReviewsCarousel />
             </div>
           </div>
-        )}
+        </div>
+      </header>
 
-        {/* Add Address Page */}
-        {currentPage === 'add-address' && (
-          <div className="grid md:grid-cols-2 gap-6">
-            <Card className="rounded-xl shadow-lg p-8 bg-slate-800 border-slate-700">
-              <h2 className="text-2xl font-bold mb-6 text-center text-slate-200">
-                Add Your Address
-              </h2>
-              <div className="space-y-4">
-                <div>
-                  <Label htmlFor="pincode" className="text-slate-400 font-semibold">
-                    Pincode *
-                  </Label>
-                  <Input
-                    id="pincode"
-                    value={pincode}
-                    onChange={(e) => handlePincodeLookup(e.target.value)}
-                    placeholder="Enter 6-digit pincode"
-                    className="mt-1 bg-slate-700 border-slate-600 text-slate-100"
-                    maxLength={6}
-                  />
-                  {pincodeLoading && (
-                    <p className="text-xs text-teal-400 mt-1">Looking up location...</p>
+      {/* Timeline */}
+      {currentStage !== 'registration' && (
+        <BookingTimeline currentStage={currentStage} className="container mx-auto" />
+      )}
+
+      {/* Main Content */}
+      <div className="container mx-auto px-4 py-8">
+        <div className="grid lg:grid-cols-2 gap-8 max-w-6xl mx-auto">
+          {/* Left Column - Main Form */}
+          <div>
+            {currentStage === 'registration' && !session && (
+              <Card className="p-8 bg-slate-800 border-slate-700">
+                <div className="text-center mb-6">
+                  <h2 className="text-2xl font-bold text-teal-400 mb-2">Welcome to Snapfix</h2>
+                  <p className="text-slate-400">Book home services in minutes</p>
+                </div>
+
+                <div className="space-y-4">
+                  <div>
+                    <Label htmlFor="phone" className="text-slate-300">Mobile Number</Label>
+                    <Input
+                      id="phone"
+                      type="tel"
+                      placeholder="Enter 10-digit mobile number"
+                      value={phoneNumber}
+                      onChange={(e) => setPhoneNumber(e.target.value)}
+                      maxLength={10}
+                      disabled={otpSent}
+                      className="mt-1 bg-slate-700 border-slate-600 text-slate-100"
+                    />
+                  </div>
+
+                  {!otpSent ? (
+                    <Button
+                      onClick={handleSendOtp}
+                      disabled={loading}
+                      className="w-full bg-teal-600 hover:bg-teal-700 h-11"
+                    >
+                      {loading ? "Sending..." : "Send OTP"}
+                    </Button>
+                  ) : (
+                    <>
+                      <div>
+                        <Label htmlFor="otp" className="text-slate-300">Enter OTP</Label>
+                        <Input
+                          id="otp"
+                          type="text"
+                          placeholder="Enter 6-digit OTP"
+                          value={otp}
+                          onChange={(e) => setOtp(e.target.value)}
+                          maxLength={6}
+                          className="mt-1 bg-slate-700 border-slate-600 text-slate-100"
+                        />
+                        <p className="text-xs text-slate-500 mt-1">Check console for OTP</p>
+                      </div>
+
+                      <Button
+                        onClick={handleVerifyOtp}
+                        disabled={loading}
+                        className="w-full bg-teal-600 hover:bg-teal-700 h-11"
+                      >
+                        {loading ? "Verifying..." : "Verify OTP"}
+                      </Button>
+
+                      <Button
+                        onClick={() => {
+                          setOtpSent(false);
+                          setOtp("");
+                        }}
+                        variant="outline"
+                        className="w-full border-slate-600"
+                      >
+                        Change Number
+                      </Button>
+                    </>
                   )}
                 </div>
-                <div>
-                  <Label htmlFor="apartment-building" className="text-slate-400">
-                    Apartment/Building Name *
-                  </Label>
-                  <Input
-                    id="apartment-building"
-                    value={apartmentBuilding}
-                    onChange={(e) => setApartmentBuilding(e.target.value)}
-                    placeholder="Enter apartment/building name"
-                    className="mt-1 bg-slate-700 border-slate-600 text-slate-100"
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="street-area" className="text-slate-400">Street/Area *</Label>
-                  <Input
-                    id="street-area"
-                    value={streetArea}
-                    onChange={(e) => setStreetArea(e.target.value)}
-                    placeholder="Enter street/area"
-                    className="mt-1 bg-slate-700 border-slate-600 text-slate-100"
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="city" className="text-slate-400">City *</Label>
-                  <Input
-                    id="city"
-                    value={city}
-                    onChange={(e) => setCity(e.target.value)}
-                    placeholder="City (auto-filled)"
-                    className="mt-1 bg-slate-700 border-slate-600 text-slate-100"
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="state" className="text-slate-400">State *</Label>
-                  <Input
-                    id="state"
-                    value={state}
-                    onChange={(e) => setState(e.target.value)}
-                    placeholder="State (auto-filled)"
-                    className="mt-1 bg-slate-700 border-slate-600 text-slate-100"
-                  />
-                </div>
-              </div>
-              <Button
-                onClick={handleSaveAddress}
-                disabled={loading}
-                className="w-full bg-teal-600 hover:bg-teal-700 mt-6"
-              >
-                {loading ? 'Saving...' : 'Save Address'}
-              </Button>
-              {userAddresses.length > 0 && (
-                <Button
-                  variant="outline"
-                  onClick={() => setCurrentPage('home')}
-                  className="w-full mt-2 border-slate-600"
-                >
-                  Cancel
-                </Button>
-              )}
-            </Card>
-
-            {/* Reviews Section */}
-            <div className="space-y-6">
-              <ReviewsCarousel />
-              <WhyChooseUs />
-            </div>
-          </div>
-        )}
-
-        {/* Home Page - Services */}
-        {currentPage === 'home' && (
-          <div>
-            <div className="flex justify-between items-center mb-6">
-              <h2 className="text-2xl font-bold text-slate-200">Services</h2>
-            </div>
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-8">
-              {Object.keys(subServices).map((service) => (
-                <button
-                  key={service}
-                  onClick={() => handleServiceSelect(service)}
-                  className="bg-slate-800 border border-slate-700 rounded-xl shadow-lg text-center hover:shadow-xl p-6 transition-all hover:border-teal-500"
-                >
-                  <div className="flex flex-col items-center">
-                    <span className="text-5xl mb-2">{getServiceIcon(service)}</span>
-                    <p className="font-semibold text-lg text-slate-200 capitalize">{service}</p>
-                    <p className="text-sm text-slate-400 mt-1">
-                      {service === 'plumber' && 'Fix pipes & leaks'}
-                      {service === 'electrician' && 'Wiring & repairs'}
-                      {service === 'carpenter' && 'Woodwork & furniture'}
-                      {service === 'painter' && 'Walls & exteriors'}
-                      {service === 'househelp' && 'Cleaning & chores'}
-                    </p>
-                  </div>
-                </button>
-              ))}
-            </div>
-
-            {/* Reviews Section */}
-            <div className="space-y-6">
-              <ReviewsCarousel />
-            </div>
-          </div>
-        )}
-
-        {/* Service Details Page */}
-        {currentPage === 'service-details' && (
-          <div className="grid md:grid-cols-2 gap-6">
-            <div>
-              <Button
-                variant="ghost"
-                onClick={() => setCurrentPage('home')}
-                className="text-teal-400 font-medium mb-4 hover:underline"
-              >
-                ← Back to Home
-              </Button>
-              <Card className="rounded-xl shadow-lg p-8 bg-slate-800 border-slate-700">
-                <h2 className="text-2xl font-bold mb-6 text-center text-slate-200">
-                  Book a <span className="capitalize">{selectedService}</span>
-                </h2>
-                
-                {/* Address Selection */}
-                {userAddresses.length > 0 && (
-                  <div className="mb-4">
-                    <Label htmlFor="address-select" className="text-slate-400">Select Address</Label>
-                    <Select
-                      value={selectedAddressId?.toString()}
-                      onValueChange={(value) => setSelectedAddressId(parseInt(value))}
-                    >
-                      <SelectTrigger className="mt-1 bg-slate-700 border-slate-600 text-slate-100">
-                        <SelectValue placeholder="Select an address" />
-                      </SelectTrigger>
-                      <SelectContent className="bg-slate-700 border-slate-600">
-                        {userAddresses.map((address) => (
-                          <SelectItem key={address.id} value={address.id.toString()}>
-                            {address.apartmentBuilding || ''} {address.city}
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  </div>
-                )}
-                
-                <div className="mb-4">
-                  <Label htmlFor="sub-service" className="text-slate-400">Sub-service</Label>
-                  <Select value={selectedSubService} onValueChange={setSelectedSubService}>
-                    <SelectTrigger className="mt-1 bg-slate-700 border-slate-600 text-slate-100">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent className="bg-slate-700 border-slate-600">
-                      {subServices[selectedService]?.map((sub) => (
-                        <SelectItem key={sub} value={sub}>
-                          {sub}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div className="mb-4">
-                  <Label htmlFor="work-description" className="text-slate-400">
-                    Work Description
-                  </Label>
-                  <Textarea
-                    id="work-description"
-                    rows={4}
-                    value={workDescription}
-                    onChange={(e) => setWorkDescription(e.target.value)}
-                    placeholder="Please describe the work needed..."
-                    className="mt-1 bg-slate-700 border-slate-600 text-slate-100"
-                  />
-                </div>
-                <Button
-                  onClick={handleConfirmBooking}
-                  disabled={loading}
-                  className="w-full bg-teal-600 hover:bg-teal-700"
-                >
-                  {loading ? 'Booking...' : 'Confirm Booking'}
-                </Button>
               </Card>
-            </div>
+            )}
 
-            {/* Why Choose Us */}
-            <div className="space-y-6">
-              <WhyChooseUs />
-              <ReviewsCarousel />
-            </div>
-          </div>
-        )}
+            {currentStage === 'address' && session && (
+              <Card className="p-8 bg-slate-800 border-slate-700">
+                <div className="mb-6">
+                  <h2 className="text-2xl font-bold text-teal-400 mb-2">Add Your Address</h2>
+                  <p className="text-slate-400">Where do you need the service?</p>
+                </div>
 
-        {/* Booking Confirmation Page */}
-        {currentPage === 'booking-confirmation' && currentBooking && (
-          <div className="grid md:grid-cols-2 gap-6">
-            <Card className="rounded-xl shadow-lg p-8 text-center bg-slate-800 border-slate-700">
-              <h2 className="text-2xl font-bold text-green-500 mb-4">Booking Confirmed!</h2>
-              <p className="text-slate-400 mb-6">
-                Your professional is on their way and will call you shortly to confirm details.
-              </p>
-              <div className="p-4 bg-slate-700 rounded-lg text-left">
-                <p className="font-medium text-slate-200">Professional Details:</p>
-                <p className="text-slate-400">Name: {currentBooking.professionalName}</p>
-                <p className="text-slate-400">Contact: {currentBooking.professionalContact}</p>
-                <p className="text-slate-400 capitalize">Service: {currentBooking.serviceType}</p>
-              </div>
-              
-              <div className="mt-6 p-4 bg-teal-900/30 border border-teal-700 rounded-lg">
-                <p className="text-sm text-slate-300 mb-2">Service Charge</p>
-                <p className="text-3xl font-bold text-teal-400">₹{paymentAmount}</p>
-              </div>
+                <div className="space-y-4">
+                  <div>
+                    <Label htmlFor="pincode" className="text-slate-300">Pincode *</Label>
+                    <Input
+                      id="pincode"
+                      type="text"
+                      placeholder="Enter 6-digit pincode"
+                      value={pincode}
+                      onChange={(e) => handlePincodeChange(e.target.value)}
+                      maxLength={6}
+                      className="mt-1 bg-slate-700 border-slate-600 text-slate-100"
+                    />
+                  </div>
 
-              <Button
-                onClick={() => {
-                  setCurrentPage('payment');
-                  setTimelineStage('payment');
-                }}
-                className="w-full mt-6 bg-teal-600 hover:bg-teal-700"
-              >
-                Proceed to Payment
-              </Button>
-              <Button
-                variant="outline"
-                onClick={() => setCurrentPage('home')}
-                className="w-full mt-2 border-slate-600"
-              >
-                Back to Home
-              </Button>
-            </Card>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <Label htmlFor="city" className="text-slate-300">City *</Label>
+                      <Input
+                        id="city"
+                        type="text"
+                        placeholder="City"
+                        value={city}
+                        onChange={(e) => setCity(e.target.value)}
+                        className="mt-1 bg-slate-700 border-slate-600 text-slate-100"
+                      />
+                    </div>
+                    <div>
+                      <Label htmlFor="state" className="text-slate-300">State *</Label>
+                      <Input
+                        id="state"
+                        type="text"
+                        placeholder="State"
+                        value={state}
+                        onChange={(e) => setState(e.target.value)}
+                        className="mt-1 bg-slate-700 border-slate-600 text-slate-100"
+                      />
+                    </div>
+                  </div>
 
-            <div className="space-y-6">
-              <ReviewsCarousel />
-              <WhyChooseUs />
-            </div>
-          </div>
-        )}
+                  <div>
+                    <Label htmlFor="apartment" className="text-slate-300">Apartment/Building</Label>
+                    <Input
+                      id="apartment"
+                      type="text"
+                      placeholder="Flat no., Building name"
+                      value={apartmentBuilding}
+                      onChange={(e) => setApartmentBuilding(e.target.value)}
+                      className="mt-1 bg-slate-700 border-slate-600 text-slate-100"
+                    />
+                  </div>
 
-        {/* Payment Page */}
-        {currentPage === 'payment' && (
-          <div className="grid md:grid-cols-2 gap-6">
-            <PaymentDialog
-              amount={paymentAmount}
-              onSuccess={handlePaymentSuccess}
-              onCancel={() => setCurrentPage('booking-confirmation')}
-            />
-            
-            <div className="space-y-6">
-              <Card className="p-6 bg-slate-800 border-slate-700">
-                <h3 className="text-lg font-semibold text-teal-400 mb-3">
-                  🔒 Secure Payment
-                </h3>
-                <ul className="space-y-2 text-sm text-slate-400">
-                  <li>✓ 256-bit SSL encryption</li>
-                  <li>✓ PCI DSS compliant</li>
-                  <li>✓ All major cards accepted</li>
-                  <li>✓ Money-back guarantee</li>
-                </ul>
-              </Card>
-              <ReviewsCarousel />
-            </div>
-          </div>
-        )}
+                  <div>
+                    <Label htmlFor="street" className="text-slate-300">Street/Area</Label>
+                    <Input
+                      id="street"
+                      type="text"
+                      placeholder="Street name, Area"
+                      value={streetArea}
+                      onChange={(e) => setStreetArea(e.target.value)}
+                      className="mt-1 bg-slate-700 border-slate-600 text-slate-100"
+                    />
+                  </div>
 
-        {/* Feedback Page */}
-        {currentPage === 'feedback' && (
-          <div className="grid md:grid-cols-2 gap-6">
-            <Card className="rounded-xl shadow-lg p-8 bg-slate-800 border-slate-700">
-              <h2 className="text-2xl font-bold mb-6 text-center text-slate-200">
-                How was your service?
-              </h2>
-              <p className="text-center text-slate-400 mb-6">
-                Please rate your experience with our professional.
-              </p>
-              <div className="text-center space-x-2 text-3xl mb-6">
-                {[1, 2, 3, 4, 5].map((star) => (
-                  <span
-                    key={star}
-                    onClick={() => setRating(star)}
-                    className={`cursor-pointer transition-colors ${
-                      star <= rating ? 'text-yellow-400' : 'text-slate-600'
-                    } hover:text-yellow-400`}
+                  <Button
+                    onClick={handleSaveAddress}
+                    disabled={loading}
+                    className="w-full bg-teal-600 hover:bg-teal-700 h-11"
                   >
-                    ★
-                  </span>
-                ))}
-              </div>
-              <div className="mb-4">
-                <Label htmlFor="feedback-text" className="text-slate-400">
-                  Any comments?
-                </Label>
-                <Textarea
-                  id="feedback-text"
-                  rows={4}
-                  value={feedbackText}
-                  onChange={(e) => setFeedbackText(e.target.value)}
-                  placeholder="Share your experience..."
-                  className="mt-1 bg-slate-700 border-slate-600 text-slate-100"
-                />
-              </div>
-              <Button
-                onClick={handleSubmitFeedback}
-                disabled={loading}
-                className="w-full bg-teal-600 hover:bg-teal-700"
-              >
-                {loading ? 'Submitting...' : 'Submit Feedback'}
-              </Button>
-            </Card>
+                    {loading ? "Saving..." : "Continue"}
+                  </Button>
+                </div>
+              </Card>
+            )}
 
-            <div className="space-y-6">
-              <ReviewsCarousel />
-              <WhyChooseUs />
-            </div>
+            {currentStage === 'booking' && session && (
+              <Card className="p-8 bg-slate-800 border-slate-700">
+                <div className="mb-6">
+                  <h2 className="text-2xl font-bold text-teal-400 mb-2">Select Service</h2>
+                  <p className="text-slate-400">What do you need help with?</p>
+                </div>
+
+                <div className="space-y-6">
+                  <div className="grid grid-cols-2 gap-3">
+                    {services.map((service) => (
+                      <button
+                        key={service.id}
+                        onClick={() => {
+                          setSelectedService(service.id);
+                          setSubService("");
+                        }}
+                        className={`p-4 rounded-lg border-2 transition-all ${
+                          selectedService === service.id
+                            ? "border-teal-500 bg-teal-900/30"
+                            : "border-slate-600 bg-slate-700 hover:border-slate-500"
+                        }`}
+                      >
+                        <span className="text-4xl mb-2 block">{service.icon}</span>
+                        <span className="text-slate-200 font-medium text-sm">{service.name}</span>
+                      </button>
+                    ))}
+                  </div>
+
+                  {selectedService && (
+                    <div>
+                      <Label className="text-slate-300">Sub-Service</Label>
+                      <select
+                        value={subService}
+                        onChange={(e) => setSubService(e.target.value)}
+                        className="w-full mt-1 p-2 rounded-lg bg-slate-700 border-slate-600 text-slate-100"
+                      >
+                        <option value="">Select sub-service</option>
+                        {services
+                          .find((s) => s.id === selectedService)
+                          ?.subServices.map((sub) => (
+                            <option key={sub} value={sub}>
+                              {sub}
+                            </option>
+                          ))}
+                      </select>
+                    </div>
+                  )}
+
+                  <div>
+                    <Label htmlFor="description" className="text-slate-300">Work Description</Label>
+                    <Textarea
+                      id="description"
+                      placeholder="Describe the work needed..."
+                      value={workDescription}
+                      onChange={(e) => setWorkDescription(e.target.value)}
+                      className="mt-1 bg-slate-700 border-slate-600 text-slate-100"
+                      rows={4}
+                    />
+                  </div>
+
+                  <Button
+                    onClick={handleBookService}
+                    disabled={loading || !selectedService}
+                    className="w-full bg-teal-600 hover:bg-teal-700 h-11"
+                  >
+                    {loading ? "Booking..." : "Book Service"}
+                  </Button>
+                </div>
+              </Card>
+            )}
+
+            {currentStage === 'confirmed' && !showPayment && (
+              <Card className="p-8 bg-slate-800 border-slate-700 text-center">
+                <div className="text-6xl mb-4">✅</div>
+                <h2 className="text-2xl font-bold text-teal-400 mb-2">Booking Confirmed!</h2>
+                <p className="text-slate-400 mb-4">
+                  Your service has been confirmed. A professional will be assigned shortly.
+                </p>
+                <div className="bg-slate-700 rounded-lg p-4 text-left">
+                  <p className="text-slate-300 font-medium mb-2">Professional Details:</p>
+                  <p className="text-slate-400 text-sm">Name: Rajesh Kumar</p>
+                  <p className="text-slate-400 text-sm">Contact: +91 98765 43210</p>
+                </div>
+              </Card>
+            )}
+
+            {showPayment && (
+              <PaymentDialog
+                amount={499}
+                onSuccess={handlePaymentSuccess}
+                onCancel={() => setShowPayment(false)}
+              />
+            )}
+
+            {currentStage === 'completed' && !showPayment && (
+              <Card className="p-8 bg-slate-800 border-slate-700 text-center">
+                <div className="text-6xl mb-4">🎉</div>
+                <h2 className="text-2xl font-bold text-teal-400 mb-2">Service Completed!</h2>
+                <p className="text-slate-400">
+                  Your service has been successfully completed. Please provide feedback.
+                </p>
+              </Card>
+            )}
+
+            {currentStage === 'feedback' && (
+              <Card className="p-8 bg-slate-800 border-slate-700">
+                <div className="mb-6 text-center">
+                  <h2 className="text-2xl font-bold text-teal-400 mb-2">Rate Your Experience</h2>
+                  <p className="text-slate-400">How was the service?</p>
+                </div>
+
+                <FeedbackForm onSubmit={handleSubmitFeedback} loading={loading} />
+              </Card>
+            )}
           </div>
-        )}
+
+          {/* Right Column - Reviews & Info */}
+          <div className="space-y-6">
+            <ReviewsCarousel />
+            <WhyChooseUs />
+          </div>
+        </div>
       </div>
+    </div>
+  );
+}
+
+function FeedbackForm({ onSubmit, loading }: { onSubmit: (rating: number, comments: string) => void; loading: boolean }) {
+  const [rating, setRating] = useState(0);
+  const [comments, setComments] = useState("");
+
+  return (
+    <div className="space-y-4">
+      <div>
+        <Label className="text-slate-300">Rating</Label>
+        <div className="flex gap-2 justify-center my-4">
+          {[1, 2, 3, 4, 5].map((star) => (
+            <button
+              key={star}
+              onClick={() => setRating(star)}
+              className="text-4xl transition-transform hover:scale-110"
+            >
+              {star <= rating ? "⭐" : "☆"}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div>
+        <Label htmlFor="feedback-comments" className="text-slate-300">Comments</Label>
+        <Textarea
+          id="feedback-comments"
+          placeholder="Share your experience..."
+          value={comments}
+          onChange={(e) => setComments(e.target.value)}
+          className="mt-1 bg-slate-700 border-slate-600 text-slate-100"
+          rows={4}
+        />
+      </div>
+
+      <Button
+        onClick={() => onSubmit(rating, comments)}
+        disabled={loading || rating === 0}
+        className="w-full bg-teal-600 hover:bg-teal-700 h-11"
+      >
+        {loading ? "Submitting..." : "Submit Feedback"}
+      </Button>
     </div>
   );
 }
