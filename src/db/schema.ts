@@ -124,3 +124,38 @@ export const productReviews = sqliteTable('product_reviews', {
   reviewText: text('review_text'),
   createdAt: text('created_at').notNull(),
 });
+
+export const employees = sqliteTable('employees', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  phoneNumber: text('phone_number').notNull().unique(),
+  name: text('name').notNull(),
+  email: text('email').unique(),
+  specialization: text('specialization'),
+  status: text('status').notNull().default('active'),
+  rating: real('rating').default(0),
+  completedJobs: integer('completed_jobs').default(0),
+  createdAt: text('created_at').notNull(),
+  updatedAt: text('updated_at').notNull(),
+});
+
+export const employeeOtpVerifications = sqliteTable('employee_otp_verifications', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  phoneNumber: text('phone_number').notNull(),
+  otpCode: text('otp_code').notNull(),
+  expiresAt: text('expires_at').notNull(),
+  isVerified: integer('is_verified', { mode: 'boolean' }).default(false),
+  createdAt: text('created_at').notNull(),
+});
+
+export const bookingAssignments = sqliteTable('booking_assignments', {
+  id: integer('id').primaryKey({ autoIncrement: true }),
+  bookingId: integer('booking_id').notNull().references(() => bookings.id),
+  employeeId: integer('employee_id').notNull().references(() => employees.id),
+  assignedAt: text('assigned_at').notNull(),
+  acceptedAt: text('accepted_at'),
+  startedAt: text('started_at'),
+  completedAt: text('completed_at'),
+  status: text('status').notNull().default('assigned'),
+  notes: text('notes'),
+  createdAt: text('created_at').notNull(),
+});
