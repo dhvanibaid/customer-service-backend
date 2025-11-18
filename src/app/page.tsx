@@ -348,6 +348,14 @@ export default function SnapfixHomePage() {
               <h1 className="text-2xl font-bold text-teal-400">Snapfix</h1>
             </div>
             <div className="flex items-center gap-4">
+              <Button
+                variant="outline"
+                onClick={() => router.push("/employee/login")}
+                className="text-teal-400 border-teal-600 hover:bg-teal-900/30"
+              >
+                <Wrench className="h-4 w-4 mr-2" />
+                Employee Portal
+              </Button>
               {session && (
                 <>
                   <Button
